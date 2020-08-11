@@ -15,6 +15,8 @@ class Person(ABC):
         :param starting_pos: Persons starting position.
         :param symptom_delay: Delay between being infected and showing symptoms.
         :param time_until_recovery: Time from getting sick and recovering.
+        :param home: Home building.
+        :param work: Work Building (None if person does not have a job).
         """
         self.infected = infected
         self.pos = starting_pos
@@ -45,7 +47,7 @@ class Person(ABC):
         """
         Function that tries to spread infection from self to other.
         :param other: Other person.
-        :param time: Current time
+        :param time: Current time.
         """
         if self.infected and not self.quarantine and self.dist(other) < self.infection_dist:
             if other.symptomatic or other.immune:
@@ -88,12 +90,16 @@ class Person(ABC):
     def dist(self, other):
         """
         Calculates (2D) distance from self to other.
-        :param other:
-        :return:
+        :param other: Other person
+        :return: Distance between self and other.
         """
         return math.sqrt((self.pos[0] - other.pos[0]) ** 2 + (self.pos[1] - other.pos[1]) ** 2)
 
     def set_world(self, world):
+        """
+        Makes the person aware of all other info in the world
+        :param world: World in which person lives in.
+        """
         self.world = world
 
     @staticmethod
@@ -107,17 +113,24 @@ class Person(ABC):
         return 0 <= pos[0] <= world_size[0] and 0 <= pos[1] <= world_size[1]
 
     def get_buildings(self):
+        """
+        Fetches all buildings in the world.
+        :return: List of buildings in the world.
+        """
         return self.world.buildings
 
     def get_others_pos(self):
-        return [person.pos for person in self.world.persons]
+        """
+        Finds position of all other persons.
+        :return: List of other persons positions.
+        """
+        return [person.pos for person in self.world.persons if person is not self]
 
     @abstractmethod
     def move(self, *args):
         """
         Abstract method for moving a person.
-        :param world_size: World size used for constraining the persons movement.
-        :param dt:
+        :param args: Arguments.
         """
         pass
 
@@ -142,22 +155,24 @@ class RandomPerson(Person):
         is sufficiently close.
         :param infected: If person is infected or not.
         :param infection_dist: Distance that person can infect others.
-        :param infection_prob: Probability that person infects other if others can be infected and are close enough.
         :param speed: Persons walking speed.
         :param starting_pos: Persons starting position.
         :param symptom_delay: Delay between being infected and showing symptoms.
         :param time_until_recovery: Time from getting sick and recovering.
+        :param home: Home building.
+        :param work: Work Building (None if person does not have a job).
         """
 
-        super(RandomPerson, self).__init__(infected=infected, starting_pos=starting_pos, speed=speed,
-                                           infection_dist=infection_dist, infection_prob=infection_prob,
-                                           symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
-                                           home=home, work=work)
+        super().__init__(infected=infected, starting_pos=starting_pos, speed=speed,
+                         infection_dist=infection_dist, infection_prob=infection_prob,
+                         symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
+                         home=home, work=work)
 
     def move(self, today_time, world_size):
         """
-        Move the person in accordance to a (2D) random walk.
-        :param world_size: World size used for constraining persons walk.
+        Moves the person in accordance to a (2D) random walk.
+        :param today_time: Time of the day.
+        :param world_size: World size, used for constraining persons walk.
         """
         angle = rnd.uniform(0, 2 * math.pi)
         dx, dy = self.speed * math.cos(angle), self.speed * math.sin(angle)
@@ -185,24 +200,30 @@ class QuarantinePerson(Person):
                  time_until_recovery, home, work):
 
         """
-        Person that goes into quarantine when getting symptoms.
+        Random person that goes into quarantine when getting symptoms.
         :param infected: If person is infected or not.
         :param infection_dist: Distance that person can infect others.
-        :param infection_prob: Probability that person infects other if others can be infected and are close enough.
         :param speed: Persons walking speed.
         :param starting_pos: Persons starting position.
         :param symptom_delay: Delay between being infected and showing symptoms.
         :param time_until_recovery: Time from getting sick and recovering.
+        :param home: Home building.
+        :param work: Work Building (None if person does not have a job).
         """
 
-        super(QuarantinePerson, self).__init__(infected=infected, starting_pos=starting_pos, speed=speed,
-                                               infection_dist=infection_dist, infection_prob=infection_prob,
-                                               symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
-                                               home=home, work=work)
+        super().__init__(infected=infected, starting_pos=starting_pos, speed=speed,
+                         infection_dist=infection_dist, infection_prob=infection_prob,
+                         symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
+                         home=home, work=work)
 
         self.quarantined = False
 
     def move(self, today_time, world_size):
+        """
+        Moves the person in accordance to a (2D) random walk.
+        :param today_time: Time of the day.
+        :param world_size: World size, used for constraining persons walk.
+        """
         if self.quarantined:
             return
 
@@ -216,10 +237,22 @@ class QuarantinePerson(Person):
             self.move(today_time=today_time, world_size=world_size)
 
     def _try_infect(self, other, time):
+        """
+       If other is close enough, self infects other with some probability. If other gets infected, his/her
+       state is updated.
+       :param other: Other person.
+       :param time: Current time
+       """
         if rnd.random() < self.infection_prob:
             other.gets_infected(time=time)
 
     def update_conditions(self, time):
+        """
+        Overrides the original
+        Check if persons state have changed and if so updates his/her state.
+        Ex person now is immune so is no longer infected or shows symptoms.
+        :param time: Current time.
+        """
         if not self.infected or self.immune:
             return
 
@@ -236,9 +269,8 @@ class QuarantinePerson(Person):
 
 class Worker(Person):
 
-    def __init__(self, infected, starting_pos, speed,
-                 infection_dist, infection_prob, symptom_delay, time_until_recovery,
-                 home, work):
+    def __init__(self, infected, starting_pos, speed, infection_dist, infection_prob, symptom_delay,
+                 time_until_recovery, home, work):
 
         """
         Person that goes into quarantine when getting symptoms.
@@ -250,10 +282,10 @@ class Worker(Person):
         :param time_until_recovery: Time from getting sick and recovering.
         """
 
-        super(Worker, self).__init__(infected=infected, starting_pos=starting_pos, speed=speed,
-                                     infection_dist=infection_dist, infection_prob=infection_prob,
-                                     symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
-                                     home=home, work=work)
+        super().__init__(infected=infected, starting_pos=starting_pos, speed=speed,
+                         infection_dist=infection_dist, infection_prob=infection_prob,
+                         symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
+                         home=home, work=work)
 
         self.prob_go_out = rnd.uniform(0, 1)
         self.return_time = rnd.randint(17, 22)
