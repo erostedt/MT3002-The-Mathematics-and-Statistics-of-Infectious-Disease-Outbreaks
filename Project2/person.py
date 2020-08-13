@@ -49,16 +49,18 @@ class Person(ABC):
         :param other: Other person.
         :param time: Current time.
         """
-        if self.infected and not self.quarantine and self.dist(other) < self.infection_dist:
-            if other.symptomatic or other.immune:
-                return
+        if self.infected and self.dist(other) < self.infection_dist:
+            if not self.quarantine or (self.quarantine and other.home is self.home):    # If quarantine, can only infect other's in the same home.
 
-            if not other.infected:
-                self._try_infect(other, time)
+                if other.symptomatic or other.immune:
+                    return
 
-            other.exposures.append(time)
-            if self.symptomatic:
-                other.known_exposures.append(time)
+                if not other.infected:
+                    self._try_infect(other, time)
+
+                other.exposures.append(time)
+                if self.symptomatic:
+                    other.known_exposures.append(time)
 
     def gets_infected(self, time):
         """
@@ -126,6 +128,20 @@ class Person(ABC):
         """
         return [person.pos for person in self.world.persons if person is not self]
 
+    def random_walk(self, world_size):
+        """
+        Function for a constrained 2D random walk.
+        :param world_size: Size of the world.
+        :return: New position.
+        """
+        new_pos = (-1, -1)
+        while not self._inside(world_size, new_pos):
+            angle = rnd.uniform(0, 2 * math.pi)
+            dx, dy = self.speed * math.cos(angle), self.speed * math.sin(angle)
+            x, y = self.pos
+            new_pos = (x + dx, y + dy)
+        return new_pos
+
     @abstractmethod
     def move(self, *args):
         """
@@ -168,20 +184,16 @@ class RandomPerson(Person):
                          symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
                          home=home, work=work)
 
-    def move(self, today_time, world_size):
+        self.quarantined = False
+
+    def move(self, today_time, world_size, dt=None):
         """
         Moves the person in accordance to a (2D) random walk.
         :param today_time: Time of the day.
+        :param dt:
         :param world_size: World size, used for constraining persons walk.
         """
-        angle = rnd.uniform(0, 2 * math.pi)
-        dx, dy = self.speed * math.cos(angle), self.speed * math.sin(angle)
-        x, y = self.pos
-        new_pos = (x + dx, y + dy)
-        if self._inside(world_size, new_pos):
-            self.pos = new_pos
-        else:
-            self.move(today_time=today_time, world_size=world_size)
+        self.pos = self.random_walk(world_size=world_size)
 
     def _try_infect(self, other, time):
         """
@@ -200,7 +212,7 @@ class QuarantinePerson(Person):
                  time_until_recovery, home, work):
 
         """
-        Random person that goes into quarantine when getting symptoms.
+        Random walks during the day and sleeps at night.
         :param infected: If person is infected or not.
         :param infection_dist: Distance that person can infect others.
         :param speed: Persons walking speed.
@@ -218,23 +230,21 @@ class QuarantinePerson(Person):
 
         self.quarantined = False
 
-    def move(self, today_time, world_size):
+    def move(self, today_time, world_size, dt=None):
         """
         Moves the person in accordance to a (2D) random walk.
         :param today_time: Time of the day.
+        :param dt: Time step.
         :param world_size: World size, used for constraining persons walk.
         """
         if self.quarantined:
+            self.pos = self.home.pos
             return
 
-        angle = rnd.uniform(0, 2 * math.pi)
-        dx, dy = self.speed * math.cos(angle), self.speed * math.sin(angle)
-        x, y = self.pos
-        new_pos = (x + dx, y + dy)
-        if self._inside(world_size, new_pos):
-            self.pos = new_pos
+        if 6 <= today_time <= 22:
+            self.pos = self.random_walk(world_size=world_size)
         else:
-            self.move(today_time=today_time, world_size=world_size)
+            self.pos = self.home.pos    # Sleeps
 
     def _try_infect(self, other, time):
         """
@@ -265,6 +275,7 @@ class QuarantinePerson(Person):
         elif time >= self.symptom_time:
             self.symptomatic = True
             self.quarantined = True
+            self.pos = self.home.pos
 
 
 class Worker(Person):
@@ -287,31 +298,54 @@ class Worker(Person):
                          symptom_delay=symptom_delay, time_until_recovery=time_until_recovery,
                          home=home, work=work)
 
-        self.prob_go_out = rnd.uniform(0, 1)
-        self.return_time = rnd.randint(17, 22)
         self.quarantined = False
+        self._carry = 0
 
-    def move(self, today_time, world_size):
+    def move(self, today_time, world_size, dt=1):
+        """
+        Moves the person in accordance to a (2D) random walk.
+        :param today_time: Time of the day.
+        :param dt:
+        :param world_size: World size, used for constraining persons walk.
+        """
+
         if self.quarantined:
             self.pos = self.home.pos
             return
-
-        # Work hours = 8 -> 16, So assumed to be commuting at 7.00 and 16.00. Since hourly update, we let the person
-        # be able to infect during commute at 7 and 17 (just when leaving home and just before coming home)
-
+        """
+        Work hours = 8 -> 16, So assumed to be commuting at 7.00 and 16.00. We let the person
+        be able to infect during commute at 7->8 and 16->17 (just when leaving home and just before coming home)
+        Then assume that person random walks after work and prior to sleep.
+        """
         if 7 <= today_time < 8:
-            self.pos = (self.work.pos[0] - self.pos[0])/3, (self.work.pos[1] - self.pos[1])/3    # Going to work.
+            self.pos = (self.home.pos[0] + self._carry * dt * (self.work.pos[0] - self.home.pos[0]),
+                        self.home.pos[1] + self._carry * dt * (self.work.pos[1] - self.home.pos[1]))    # Going to work.
 
-        if 16 < today_time <= 17:
-            self.pos = (self.work.pos[0] - self.pos[0])/3, (self.work.pos[1] - self.pos[1])/3   # Going home.
+            self._carry += 1    # Used to evenly space out work commute
 
         elif 8 <= today_time <= 16:
             self.pos = self.work.pos
+            self._carry = 0
+
+        elif 16 < today_time <= 17:
+            self.pos = (self.work.pos[0] + self._carry * dt * (self.home.pos[0] - self.work.pos[0]),
+                        self.work.pos[1] + self._carry * dt * (self.home.pos[1] - self.work.pos[1]))    # Going home.
+            self._carry += 1
+
+        elif 17 < today_time <= rnd.uniform(17, 22):    # Has a random chance to go home prior to 22.
+            self.pos = self.random_walk(world_size=world_size)
 
         else:
             self.pos = self.home.pos
+            self._carry = 0
 
     def _try_infect(self, other, time):
+        """
+        If other is close enough, self infects other with some probability. If other gets infected, his/her
+        state is updated.
+        :param other: Other person.
+        :param time: Current time
+        """
         if self.pos == self.home.pos:
             infection_prob = self.infection_prob * self.home.tightness
 

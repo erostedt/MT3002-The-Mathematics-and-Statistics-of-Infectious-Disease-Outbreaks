@@ -9,14 +9,14 @@ class World:
         self.persons = persons
         self.buildings = buildings
 
-    def update(self, time):
+    def update(self, time, dt=None):
         """
         Updates the state of the world to the new state at time: time. All people are first moved then we check
         for new infection spread, checking for newly arisen symtoms etc.
         :param time: Current time.
         :param dt:
         """
-        self.move_people(today_time=time % 24)
+        self.move_people(today_time=time % 24, dt=dt)
         for person in self.persons:
             for other in self.persons:
                 if person == other:
@@ -26,9 +26,11 @@ class World:
 
                 person.update_conditions(time=time)
 
-    def move_people(self, today_time):
+    def move_people(self, today_time, dt):
         """
         Functions that moves all persons in the world.
+        :param today_time: Time of the day.
+        :param dt: Size of time step.
         """
         for person in self.persons:
-            person.move(today_time=today_time, world_size=self.world_size)
+            person.move(today_time=today_time, world_size=self.world_size, dt=dt)

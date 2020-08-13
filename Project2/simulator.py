@@ -5,47 +5,42 @@ import seaborn as sns
 
 class Simulator:
 
-    def __init__(self, world, sim_time=50 * 24, dt=1):
+    def __init__(self, world):
         """
         Initialization of a simulator class. A simulator class is defined by holding a world with people,
         but also takes care of the movement of time. Used for simulating infection spread throughout the world.
         Also does visualization and relevant calculations for data analysis.
-        :param persons: List of persons.
-        :param world_shape: Dimensions of the world, measured as (meters, meters) -> meters^2
-        :param frame_rate: Frame rate of the simulation.
-                           1 -> 1 update per hour, 2 -> 2 updates per hour etc. So speeds are m/s
+        :param world: List of persons.
         """
         self.world = world
-        self.time = 0
-        self.sim_time = sim_time
-        self.dt = dt
+        self.fig, self.ax = plt.subplots(figsize=(16, 9))
+        self.disp = False
+        self.prog = 1
 
-        self.fig, self.ax = plt.subplots()
-
-    def __iter__(self):
-        """
-        Iteration function that moves throughout the time of the simulation.
-        :yield self.time: New current time.
-        """
-        while self.time < self.sim_time:
-            yield self.time
-
-            self.time += self.dt
-
-    def simulate(self, disp=False):
+    def simulate(self, time=0, dt=1, sim_time=50 * 24, disp=False, see_progress=False):
         """
         Simulates the infection spreading throughout the world.
-        :param see_time:
+        :param time: Start time.
+        :param dt: Size of time step.
+        :param sim_time: Simulation duration.
         :param disp: True for visual simulation, false else.
+        :param see_progress: True for print outs of % done of the simulation.
         """
-        for time in self:
-            self.world.update(time=time)
+        self.disp = disp
+        while time < sim_time:
+            if see_progress:
+                if 100 * (time / sim_time) > self.prog:
+                    print(f'{self.prog:.2f}%')
+                    self.prog += 1
+            self.world.update(time=time, dt=dt)
             if disp:
-                self.display()
+                self.display(time)
+            time += dt
 
         self.time = 0
+        self.prog = 1
 
-    def display(self):
+    def display(self, time):
         """
         Visualises the spreading of infection throughout time.
         """
@@ -58,7 +53,7 @@ class Simulator:
         homes_x, homes_y = [], []
         schools_x, schools_y = [], []
         works_x, works_y = [], []
-        other_x, other_y = [], []
+
         for building in self.world.buildings:
             if building._type == 'Home':
                 homes_x.append(building.pos[0])
@@ -107,39 +102,65 @@ class Simulator:
         self.ax.scatter(x_inf, y_inf, c=colors[4])
         self.ax.scatter(x_ninf, y_ninf, c=colors[5])
 
-        self.ax.legend(['Homes', 'Schools', 'Work places', 'Immune', 'Quarantined', 'Symptomatic', 'Infected', 'Susceptible'], loc='upper right')
+        self.ax.legend(['Homes', 'Schools', 'Work places', 'Immune', 'Quarantined', 'Symptomatic', 'Infected',
+                        'Susceptible'], bbox_to_anchor=(1.125, 1.1))
+
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('y')
+
         self.ax.set_xlim(0, self.world.world_size[0])
         self.ax.set_ylim(0, self.world.world_size[1])
-        self.ax.set_title(f'{self.time}')
+        self.ax.set_title(f'Day: {time // 24} Hour: {time % 24}')
         plt.show(block=False)
         plt.pause(0.01)
 
     def plot_distributions(self):
-        one_known_exposure_delay, average_known_exposure_delay, true_delay = self.get_distributions()
+        """
+        Plots the Infected time distributions.
+        """
+        one_known_exposure_infection_time, average_known_exposure_infection_time, true_infection_time = \
+            self.get_infection_time_distributions()
 
-        plt.figure()
-        sns.distplot(one_known_exposure_delay)
-        sns.distplot(average_known_exposure_delay)
-        sns.distplot(true_delay)
-        plt.legend(['One known exp delay', 'Average known exp delay', 'True infection delay'])
-        plt.show()
+        print('Length of one known:', len(one_known_exposure_infection_time))
+        print('Lenght of average:', len(average_known_exposure_infection_time))
+        print('Len of true', len(true_infection_time))
 
-    def get_distributions(self):
-        one_known_exposure_delay = []
-        average_known_exposure_delay = []
-        true_delay = []
+        try:
+            if self.disp:
+                plt.figure()
+            sns.distplot(one_known_exposure_infection_time)
+            sns.distplot(average_known_exposure_infection_time)
+            sns.distplot(true_infection_time)
+            plt.legend(['One known exposure', 'Average known exposures', 'True infected time'])
+            plt.xlabel('Days')
+            plt.ylabel('P(infected time = x)')
+            plt.title('Infected time distributions')
+            plt.show()
+
+        except RuntimeError('Cannot plot empty lists'):
+            pass
+
+    def get_infection_time_distributions(self):
+        """
+        Estimates the infection time distributions for two estimations methods and also fetches the true distribution.
+        Method 1: Take only persons with one known exposure.
+        Method 2: Take average of all known exposures.
+        """
+        one_known_exposure_infection_time = []
+        average_known_exposure_infection_time = []
+        true_infection_time = []
         for person in self.world.persons:
-            if person.symptom_time != float('Inf'):
+            if person.immune_time != float('Inf'):
 
                 if len(person.known_exposures) == 1:
-                    one_known_exposure_delay.append(person.symptom_time - person.known_exposures[0])
+                    one_known_exposure_infection_time.append((person.immune_time - person.known_exposures[0]) / 24)
 
                 if person.known_exposures:
-                    average_known_exposure_delay.append(person.symptom_time - stat.mean(person.known_exposures))
+                    average_known_exposure_infection_time.append((person.immune_time - stat.mean(person.known_exposures)) / 24)
 
-                true_delay.append(person.symptom_time - person.infected_time)
+                true_infection_time.append((person.immune_time - person.infected_time) / 24)
 
-        return one_known_exposure_delay, average_known_exposure_delay, true_delay
+        return one_known_exposure_infection_time, average_known_exposure_infection_time, true_infection_time
 
 
 
