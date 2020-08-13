@@ -125,6 +125,10 @@ class Simulator:
         print('Lenght of average:', len(average_known_exposure_infection_time))
         print('Len of true', len(true_infection_time))
 
+        print('Estimated R_0 with one know:', stat.mean(one_known_exposure_infection_time) * 2.5 / 14)
+        print('Estimated R_0 with average:', stat.mean(average_known_exposure_infection_time) * 2.5 / 14)
+        print('Estimated R_0 with true:', stat.mean(true_infection_time) * 2.5 / 14)
+
         try:
             if self.disp:
                 plt.figure()

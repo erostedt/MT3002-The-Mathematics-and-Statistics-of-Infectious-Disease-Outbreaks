@@ -6,15 +6,16 @@ import random as rnd
 
 if __name__ == '__main__':
 
-    def random_world(world_size=(1000, 1000), num_people=500, pop_distr=(0.6, 0.3, 0.1), infection_prob=0.02,
-                     infection_dist=2, speed=10, avg_persons_per_household=4, avg_pupils_per_school=100,
-                     avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1), delay=(rnd.gauss, 7, 1),
-                     recovery=(rnd.gauss, 14, 2)):
+    def random_world(world_size=(1000, 1000), num_people=500, num_initially_infected=1,  pop_distr=(0.6, 0.3, 0.1),
+                     infection_prob=0.02, infection_dist=2, speed=10, avg_persons_per_household=4,
+                     avg_pupils_per_school=100, avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1),
+                     delay=(rnd.gauss, 7, 1), recovery=(rnd.gauss, 14, 2)):
 
         """
         Constructs a society with Random walkers.
         :param world_size: Size of the world.
         :param num_people: Number of people in the world.
+        :param num_initially_infected: Number of initially infected
         :param pop_distr: Proportions of people. Eg. (0.6, 0.3, 0.1) means 60% workers, 30% students and 10% others.
         :param infection_prob: Probability of infecting.
         :param infection_dist: Max distance infection can spread.
@@ -40,22 +41,23 @@ if __name__ == '__main__':
                                 time_until_recovery=recovery_func(recovery_param1, recovery_param2), home=None,
                                 work=None) for _ in range(num_people)]
 
-        _infected = rnd.randint(0, num_people)
-        persons[_infected].gets_infected(time=0)
+        for person in rnd.choices(persons, k=num_initially_infected):
+            person.gets_infected(time=0)
 
         world = World(world_size=world_size, persons=persons, buildings=[])
 
         return world
 
-    def quarantine_world(world_size=(1000, 1000), num_people=500, pop_distr=(0.6, 0.3, 0.1), infection_prob=0.02,
-                         infection_dist=2, speed=10, avg_persons_per_household=4, avg_pupils_per_school=100,
-                         avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1), delay=(rnd.gauss, 7, 1),
-                         recovery=(rnd.gauss, 14, 2)):
+    def quarantine_world(world_size=(1000, 1000), num_people=500, num_initially_infected=1, pop_distr=(0.6, 0.3, 0.1),
+                         infection_prob=0.02, infection_dist=2, speed=10, avg_persons_per_household=4,
+                         avg_pupils_per_school=100, avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1),
+                         delay=(rnd.gauss, 7, 1), recovery=(rnd.gauss, 14, 2)):
 
         """
         Constructs a society with Quarantine persons.
         :param world_size: Size of the world.
         :param num_people: Number of people in the world.
+        :param num_initially_infected: Number of initially infected.
         :param pop_distr: Proportions of people. Eg. (0.6, 0.3, 0.1) means 60% workers, 30% students and 10% others.
         :param infection_prob: Probability of infecting.
         :param infection_dist: Max distance infection can spread.
@@ -87,11 +89,11 @@ if __name__ == '__main__':
                                     infection_dist=infection_dist, infection_prob=infection_prob,
                                     symptom_delay=delay_func(delay_param1, delay_param2),
                                     time_until_recovery=recovery_func(recovery_param1, recovery_param2),
-                                    home=home_which_people_live_in[person], work=rnd.choice(person))
-                   for person in range(0, num_people)]
+                                    home=home_which_people_live_in[person], work=None)
+                   for person in range(num_people)]
 
-        _infected = rnd.randint(0, num_people)
-        persons[_infected].gets_infected(time=0)
+        for person in rnd.choices(persons, k=num_initially_infected):
+            person.gets_infected(time=0)
 
         world = World(world_size=world_size, persons=persons, buildings=homes)
 
@@ -101,15 +103,16 @@ if __name__ == '__main__':
 
         return world
 
-    def worker_world(world_size=(1000, 1000), num_people=500, pop_distr=(0.6, 0.3, 0.1), infection_prob=0.02,
-                     infection_dist=2, speed=10, avg_persons_per_household=4, avg_pupils_per_school=100,
-                     avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1), delay=(rnd.gauss, 7, 1),
-                     recovery=(rnd.gauss, 14, 2)):
+    def worker_world(world_size=(1000, 1000), num_people=500, num_initially_infected=1, pop_distr=(0.6, 0.3, 0.1),
+                     infection_prob=0.02, infection_dist=2, speed=10, avg_persons_per_household=4,
+                     avg_pupils_per_school=100, avg_persons_per_workplace=50, tightness=(0.9, 0.3, 0.1),
+                     delay=(rnd.gauss, 7, 1), recovery=(rnd.gauss, 14, 2)):
 
         """
         Constructs a society with workers, students and others.
         :param world_size: Size of the world.
         :param num_people: Number of people in the world.
+        :param num_initially_infected: Number of initially infected.
         :param pop_distr: Proportions of people. Eg. (0.6, 0.3, 0.1) means 60% workers, 30% students and 10% others.
         :param infection_prob: Probability of infecting.
         :param infection_dist: Max distance infection can spread.
@@ -168,8 +171,8 @@ if __name__ == '__main__':
 
         persons = youngs + workers + others
 
-        _infected = rnd.randint(0, num_people)
-        persons[_infected].gets_infected(time=0)
+        for person in rnd.choices(persons, k=num_initially_infected):
+            person.gets_infected(time=0)
 
         world = World(world_size=world_size, persons=persons, buildings=homes + schools + works)
 
@@ -180,25 +183,29 @@ if __name__ == '__main__':
         return world
 
     R_0 = 2.5
+
     dt = 0.5
     tau = 14 * 24
 
     kwargs = {
-        'world_size': (333, 333),
-        'num_people': 500,
+        'world_size': (300, 300),
+        'num_people': 432,
+        'num_initially_infected': 50,
         'pop_distr': (0.6, 0.3, 0.1),
-        'infection_prob': dt * (R_0 / tau),  # R_0 = beta * tau -> beta = R_0 / tau, to adjust for different step sizes we multiply by dt.
+        'infection_prob': dt * (R_0 / tau),  # R_0 = beta * tau -> beta = R_0 / tau, to adjust for
+        # different step sizes we multiply by dt
         'infection_dist': 1.9,    # maximum is 1.9m since 2m are advised distancing.
-        'speed': 100,    # Moves 0.1km/h when random walking (might seem slow, but may be reasonable sicne people usually stops and sit down most time when outside)
+        'speed': dt * 100,    # Moves 0.01km/h when random walking
+        # (might seem slow, but may be reasonable since people usually stops and sit down most time when outside)
         'avg_persons_per_household': 4,
         'avg_pupils_per_school': 100,
         'avg_persons_per_workplace': 50,
-        'tightness': (0.8, 0.3, 0.1),   # Homes are usually very tight, then schools are tighter than companies (usually).
-        'delay': (rnd.uniform, 5*24, 9 * 24),
-        'recovery': (rnd.uniform, tau - 2*24, tau + 2 * 24)
+        'tightness': (0.8, 0.3, 0.1),   # Homes are usually very tight, then schools are tighter than companies.
+        'delay': (rnd.gauss, 7*24, 1 * 24),
+        'recovery': (rnd.gauss, tau, 2 * 24)
     }
 
-    sim = Simulator(world=random_world(**kwargs))
+    sim = Simulator(world=worker_world(**kwargs))
 
     immunes = 0
     symptomatic = 0
