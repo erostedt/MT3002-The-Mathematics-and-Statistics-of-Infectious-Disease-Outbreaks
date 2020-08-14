@@ -41,12 +41,11 @@ if __name__ == '__main__':
                                 time_until_recovery=recovery_func(recovery_param1, recovery_param2), home=None,
                                 work=None) for _ in range(num_people)]
 
-        for person in rnd.choices(persons, k=num_initially_infected):
-            person.gets_infected(time=0)
+        rnd.shuffle(persons)
+        for i in range(num_initially_infected):
+            persons[i].gets_infected(time=0)
 
-        world = World(world_size=world_size, persons=persons, buildings=[])
-
-        return world
+        return World(world_size=world_size, persons=persons, buildings=[])
 
     def quarantine_world(world_size=(1000, 1000), num_people=500, num_initially_infected=1, pop_distr=(0.6, 0.3, 0.1),
                          infection_prob=0.02, infection_dist=2, speed=10, avg_persons_per_household=4,
@@ -92,16 +91,11 @@ if __name__ == '__main__':
                                     home=home_which_people_live_in[person], work=None)
                    for person in range(num_people)]
 
-        for person in rnd.choices(persons, k=num_initially_infected):
-            person.gets_infected(time=0)
+        rnd.shuffle(persons)
+        for i in range(num_initially_infected):
+            persons[i].gets_infected(time=0)
 
-        world = World(world_size=world_size, persons=persons, buildings=homes)
-
-        # Make people aware of rest of world:
-        for person in world.persons:
-            person.world = world
-
-        return world
+        return World(world_size=world_size, persons=persons, buildings=homes)
 
     def worker_world(world_size=(1000, 1000), num_people=500, num_initially_infected=1, pop_distr=(0.6, 0.3, 0.1),
                      infection_prob=0.02, infection_dist=2, speed=10, avg_persons_per_household=4,
@@ -171,17 +165,14 @@ if __name__ == '__main__':
 
         persons = youngs + workers + others
 
-        for person in rnd.choices(persons, k=num_initially_infected):
-            person.gets_infected(time=0)
+        rnd.shuffle(persons)
+        for i in range(num_initially_infected):
+            persons[i].gets_infected(time=0)
 
-        world = World(world_size=world_size, persons=persons, buildings=homes + schools + works)
+        return World(world_size=world_size, persons=persons, buildings=homes + schools + works)
 
-        # Make people aware of rest of world:
-        for person in world.persons:
-            person.world = world
-
-        return world
-
+    ####################################################################################################################
+    # MODIFY FROM HERE!
     R_0 = 2.5
 
     dt = 0.5
@@ -195,7 +186,7 @@ if __name__ == '__main__':
         'infection_prob': dt * (R_0 / tau),  # R_0 = beta * tau -> beta = R_0 / tau, to adjust for
         # different step sizes we multiply by dt
         'infection_dist': 1.9,    # maximum is 1.9m since 2m are advised distancing.
-        'speed': dt * 100,    # Moves 0.01km/h when random walking
+        'speed': dt * 100,    # Moves 0.1km/h when random walking
         # (might seem slow, but may be reasonable since people usually stops and sit down most time when outside)
         'avg_persons_per_household': 4,
         'avg_pupils_per_school': 100,
@@ -205,7 +196,7 @@ if __name__ == '__main__':
         'recovery': (rnd.gauss, tau, 2 * 24)
     }
 
-    sim = Simulator(world=worker_world(**kwargs))
+    sim = Simulator(world=quarantine_world(**kwargs))
 
     immunes = 0
     symptomatic = 0

@@ -18,22 +18,20 @@ class Person(ABC):
         :param home: Home building.
         :param work: Work Building (None if person does not have a job).
         """
-        self.infected = infected
         self.pos = starting_pos
         self.speed = speed
 
         self.infection_dist = infection_dist
         self.infection_prob = infection_prob
 
-        self.symptom_delay, self.time_until_recovery = symptom_delay, time_until_recovery
+        self.symptom_delay, self.immune_delay = symptom_delay, time_until_recovery
 
         self.home = home
         self.work = work
-        self.world = None
 
         self.infected_time = 0 if infected else float('Inf')
         self.symptom_time = self.symptom_delay if infected else float('Inf')
-        self.immune_time = self.time_until_recovery if infected else float('Inf')
+        self.immune_time = self.immune_delay if infected else float('Inf')
 
         self.quarantine = False
         self.infected = infected
@@ -70,7 +68,7 @@ class Person(ABC):
         self.infected = True
         self.infected_time = time
         self.symptom_time = self.infected_time + self.symptom_delay
-        self.immune_time = self.infected_time + self.time_until_recovery
+        self.immune_time = self.infected_time + self.immune_delay
 
     def update_conditions(self, time):
         """
@@ -88,6 +86,8 @@ class Person(ABC):
 
         elif time >= self.symptom_time:
             self.symptomatic = True
+            if not isinstance(self, RandomPerson):
+                self.quarantine = True
 
     def dist(self, other):
         """
@@ -99,6 +99,9 @@ class Person(ABC):
 
     def set_world(self, world):
         """
+
+        (UNUSED!)
+
         Makes the person aware of all other info in the world
         :param world: World in which person lives in.
         """
@@ -116,6 +119,9 @@ class Person(ABC):
 
     def get_buildings(self):
         """
+
+        (UNUSED!)
+
         Fetches all buildings in the world.
         :return: List of buildings in the world.
         """
@@ -123,6 +129,9 @@ class Person(ABC):
 
     def get_others_pos(self):
         """
+
+        (UNUSED!)
+
         Finds position of all other persons.
         :return: List of other persons positions.
         """
@@ -256,27 +265,6 @@ class QuarantinePerson(Person):
         if rnd.random() < self.infection_prob:
             other.gets_infected(time=time)
 
-    def update_conditions(self, time):
-        """
-        Overrides the original
-        Check if persons state have changed and if so updates his/her state.
-        Ex person now is immune so is no longer infected or shows symptoms.
-        :param time: Current time.
-        """
-        if not self.infected or self.immune:
-            return
-
-        if time >= self.immune_time:
-            self.infected = False
-            self.symptomatic = False
-            self.immune = True
-            self.quarantined = False
-
-        elif time >= self.symptom_time:
-            self.symptomatic = True
-            self.quarantined = True
-            self.pos = self.home.pos
-
 
 class Worker(Person):
 
@@ -357,17 +345,3 @@ class Worker(Person):
 
         if rnd.random() < infection_prob:
             other.gets_infected(time=time)
-
-    def update_conditions(self, time):
-        if not self.infected or self.immune:
-            return
-
-        if time >= self.immune_time:
-            self.infected = False
-            self.symptomatic = False
-            self.immune = True
-            self.quarantined = False
-
-        elif time >= self.symptom_time:
-            self.symptomatic = True
-            self.quarantined = True

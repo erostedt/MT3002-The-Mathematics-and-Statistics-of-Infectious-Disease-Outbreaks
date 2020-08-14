@@ -37,7 +37,6 @@ class Simulator:
                 self.display(time)
             time += dt
 
-        self.time = 0
         self.prog = 1
 
     def display(self, time):
@@ -118,27 +117,32 @@ class Simulator:
         """
         Plots the Infected time distributions.
         """
-        one_known_exposure_infection_time, average_known_exposure_infection_time, true_infection_time = \
-            self.get_infection_time_distributions()
+        res = self.get_infection_time_distributions()
 
-        print('Length of one known:', len(one_known_exposure_infection_time))
-        print('Lenght of average:', len(average_known_exposure_infection_time))
-        print('Len of true', len(true_infection_time))
+        methods = ['one known', 'average', 'true']
 
-        print('Estimated R_0 with one know:', stat.mean(one_known_exposure_infection_time) * 2.5 / 14)
-        print('Estimated R_0 with average:', stat.mean(average_known_exposure_infection_time) * 2.5 / 14)
-        print('Estimated R_0 with true:', stat.mean(true_infection_time) * 2.5 / 14)
+        for method, _res in zip(methods, res):
+            try:
+                print('Length of ' + method + ':', len(_res))
+                print('Mean of ' + method + ':', stat.mean(_res))
+                print('Std of ' + method + ':', stat.stdev(_res))
+                print('Estimated R_0 with ' + method + ':', stat.mean(_res) * 2.5 / 14)
+
+            except:
+                print('To few values to get statistics for ' + method)
 
         try:
             if self.disp:
                 plt.figure()
-            sns.distplot(one_known_exposure_infection_time)
-            sns.distplot(average_known_exposure_infection_time)
-            sns.distplot(true_infection_time)
-            plt.legend(['One known exposure', 'Average known exposures', 'True infected time'])
-            plt.xlabel('Days')
-            plt.ylabel('P(infected time = x)')
-            plt.title('Infected time distributions')
+            for _res in res:
+                sns.distplot(_res)
+
+            plt.legend(['One known exposure', 'Average known exposures', 'True infected time'], fontsize=26)
+            plt.xlabel('Days', fontsize=30)
+            plt.ylabel('P(infected time = x)', fontsize=30)
+            plt.title('Infected time distributions', fontsize=36)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
             plt.show()
 
         except RuntimeError('Cannot plot empty lists'):
@@ -157,12 +161,12 @@ class Simulator:
             if person.immune_time != float('Inf'):
 
                 if len(person.known_exposures) == 1:
-                    one_known_exposure_infection_time.append((person.immune_time - person.known_exposures[0]) / 24)
+                    one_known_exposure_infection_time.append((person.immune_time - person.known_exposures[0])/24)
 
                 if person.known_exposures:
-                    average_known_exposure_infection_time.append((person.immune_time - stat.mean(person.known_exposures)) / 24)
+                    average_known_exposure_infection_time.append((person.immune_time - stat.mean(person.known_exposures))/24)
 
-                true_infection_time.append((person.immune_time - person.infected_time) / 24)
+                true_infection_time.append((person.immune_time - person.infected_time)/24)
 
         return one_known_exposure_infection_time, average_known_exposure_infection_time, true_infection_time
 
